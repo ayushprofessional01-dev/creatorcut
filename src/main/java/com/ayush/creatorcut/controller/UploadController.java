@@ -26,7 +26,11 @@ public class UploadController {
     }
 
     @PostMapping("/upload")
-    public String uploadVideo(@RequestParam("video") MultipartFile file, Model model) {
+    public String uploadVideo(
+            @RequestParam("video") MultipartFile file,
+            @RequestParam(defaultValue = "high") String sensitivity,
+            @RequestParam(defaultValue = "0.3") double minSilenceDuration,
+            Model model) {
 
         try {
             if (file.isEmpty()) {
@@ -52,13 +56,17 @@ public class UploadController {
 
             ProcessingResult processingResult = videoProcessingService.processVideo(
                     filePath.toString(),
-                    fileName
+                    fileName,
+                    sensitivity,
+                    minSilenceDuration
             );
 
-          model.addAttribute("message", "Video uploaded, silence detected, and trimmed successfully.");
+            model.addAttribute("message", "Video uploaded, silence detected, and trimmed successfully.");
             model.addAttribute("downloadFileName", processingResult.getOutputFileName());
             model.addAttribute("silences", processingResult.getSilenceSegments());
             model.addAttribute("silenceCount", processingResult.getSilenceSegments().size());
+            model.addAttribute("selectedSensitivity", sensitivity);
+            model.addAttribute("selectedDuration", minSilenceDuration);
 
         } catch (IOException e) {
             model.addAttribute("message", "Upload failed: " + e.getMessage());

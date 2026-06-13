@@ -5,21 +5,43 @@
 </head>
 <body>
 
-    <h1>CreatorCut</h1>
+<h1>CreatorCut</h1>
 
-    <p>Video Editor for Creators</p>
+<p>Video Editor for Creators</p>
 
-    <h2>Upload Your Video</h2>
+<h2>Upload Your Video</h2>
 
-    <form action="/upload" method="post" enctype="multipart/form-data">
+<form action="/upload" method="post" enctype="multipart/form-data">
 
-        <input type="file" name="video" accept="video/*">
+    <label>Select Video:</label>
+    <br>
+    <input type="file" name="video" accept="video/*" required>
 
-        <br><br>
+    <br><br>
 
-        <button type="submit">Upload Video</button>
+    <label>Silence Sensitivity:</label>
+    <br>
+    <select name="sensitivity">
+        <option value="low">Low - only clear silence</option>
+        <option value="medium">Medium - balanced</option>
+        <option value="high" selected>High - detects more pauses</option>
+    </select>
 
-    </form>
+    <br><br>
+
+    <label>Minimum Silence Duration:</label>
+    <br>
+    <select name="minSilenceDuration">
+        <option value="0.3" selected>0.3 seconds</option>
+        <option value="0.5">0.5 seconds</option>
+        <option value="1.0">1 second</option>
+    </select>
+
+    <br><br>
+
+    <button type="submit">Trim Video</button>
+
+</form>
 
 </body>
 </html>

@@ -21,7 +21,11 @@ public class VideoProcessingService {
 
     private static final String PROCESSED_DIR = "processed";
 
-    public ProcessingResult processVideo(String inputFilePath, String originalFileName)
+    public ProcessingResult processVideo(
+            String inputFilePath,
+            String originalFileName,
+            String sensitivity,
+            double minSilenceDuration)
             throws IOException, InterruptedException {
 
         Path processedPath = Paths.get(PROCESSED_DIR);
@@ -30,7 +34,11 @@ public class VideoProcessingService {
             Files.createDirectories(processedPath);
         }
 
-        List<SilenceSegment> silenceSegments = detectSilence(inputFilePath);
+        List<SilenceSegment> silenceSegments = detectSilence(
+                inputFilePath,
+                sensitivity,
+                minSilenceDuration
+        );
 
         String safeFileName = Paths.get(originalFileName).getFileName().toString();
 
@@ -43,15 +51,22 @@ public class VideoProcessingService {
         return new ProcessingResult(outputFileName, silenceSegments);
     }
 
-    private List<SilenceSegment> detectSilence(String inputFilePath)
+    private List<SilenceSegment> detectSilence(
+            String inputFilePath,
+            String sensitivity,
+            double minSilenceDuration)
             throws IOException, InterruptedException {
 
         List<SilenceSegment> silenceSegments = new ArrayList<>();
 
+        String noiseLevel = getNoiseLevel(sensitivity);
+
+        String silenceFilter = "silencedetect=n=" + noiseLevel + ":d=" + minSilenceDuration;
+
         ProcessBuilder processBuilder = new ProcessBuilder(
                 "ffmpeg",
                 "-i", inputFilePath,
-                "-af", "silencedetect=n=-25dB:d=0.3",
+                "-af", silenceFilter,
                 "-f", "null",
                 "-"
         );
@@ -82,7 +97,7 @@ public class VideoProcessingService {
                     double end = silenceEnd;
                     double duration = end - start;
 
-                    if (duration >= 0.5) {
+                    if (duration >= minSilenceDuration) {
                         silenceSegments.add(
                                 new SilenceSegment(start, end)
                         );
@@ -102,7 +117,10 @@ public class VideoProcessingService {
         return silenceSegments;
     }
 
-    private void removeSilence(String inputFilePath, String outputFilePath, List<SilenceSegment> silenceSegments)
+    private void removeSilence(
+            String inputFilePath,
+            String outputFilePath,
+            List<SilenceSegment> silenceSegments)
             throws IOException, InterruptedException {
 
         ProcessBuilder processBuilder;
@@ -162,6 +180,20 @@ public class VideoProcessingService {
                         segment.getEnd()
                 ))
                 .collect(Collectors.joining("+"));
+    }
+
+    private String getNoiseLevel(String sensitivity) {
+
+        if (sensitivity == null) {
+            return "-25dB";
+        }
+
+        return switch (sensitivity.toLowerCase()) {
+            case "low" -> "-35dB";
+            case "medium" -> "-30dB";
+            case "high" -> "-25dB";
+            default -> "-25dB";
+        };
     }
 
     private Double extractValue(String line, String key) {
