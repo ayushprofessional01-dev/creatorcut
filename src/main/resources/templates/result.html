@@ -1,54 +1,66 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-
 <head>
     <title>Upload Result</title>
+    <link rel="stylesheet" href="/css/style.css">
 </head>
-
 <body>
 
-<h1>CreatorCut</h1>
+<div class="container">
 
-<h2 th:text="${message}"></h2>
+    <h1>CreatorCut</h1>
 
-<div th:if="${silenceCount != null}">
-    <h3>
-        Detected silent parts:
-        <span th:text="${silenceCount}"></span>
-    </h3>
+    <h2 class="success" th:text="${message}"></h2>
+
+    <div class="card" th:if="${selectedSensitivity != null}">
+        <h3>Settings Used</h3>
+        <p>
+            Sensitivity:
+            <strong th:text="${selectedSensitivity}"></strong>
+        </p>
+        <p>
+            Minimum Silence Duration:
+            <strong th:text="${selectedDuration}"></strong>s
+        </p>
+    </div>
+
+    <div class="card" th:if="${silenceCount != null}">
+        <h3>
+            Detected Silent Parts:
+            <span th:text="${silenceCount}"></span>
+        </h3>
+
+        <div th:if="${silences != null and silenceCount > 0}">
+            <ul class="segment-list">
+                <li th:each="silence : ${silences}">
+                    Start:
+                    <span th:text="${#numbers.formatDecimal(silence.start, 1, 2)}"></span>s,
+
+                    End:
+                    <span th:text="${#numbers.formatDecimal(silence.end, 1, 2)}"></span>s,
+
+                    Duration:
+                    <span th:text="${#numbers.formatDecimal(silence.duration, 1, 2)}"></span>s
+                </li>
+            </ul>
+        </div>
+
+        <div th:if="${silenceCount != null and silenceCount == 0}">
+            <p>No clear silence found in this video.</p>
+        </div>
+    </div>
+
+    <div th:if="${downloadFileName}">
+        <a class="download-btn" th:href="@{'/download/' + ${downloadFileName}}">
+            Download Trimmed Video
+        </a>
+    </div>
+
+    <br>
+
+    <a class="back-link" href="/">Upload Another Video</a>
+
 </div>
-
-<div th:if="${silences != null and silenceCount > 0}">
-    <h3>Silent Segments</h3>
-
-    <ul>
-        <li th:each="silence : ${silences}">
-           Start:
-<span th:text="${#numbers.formatDecimal(silence.start, 1, 2)}"></span>s,
-
-End:
-<span th:text="${#numbers.formatDecimal(silence.end, 1, 2)}"></span>s,
-
-Duration:
-<span th:text="${#numbers.formatDecimal(silence.duration, 1, 2)}"></span>s
-        </li>
-    </ul>
-</div>
-
-<div th:if="${silenceCount != null and silenceCount == 0}">
-    <p>No clear silence found in this video.</p>
-</div>
-
-<div th:if="${downloadFileName}">
-    <a th:href="@{'/download/' + ${downloadFileName}}">
-        Download Processed Video
-    </a>
-</div>
-
-<br><br>
-
-<a href="/">Upload Another Video</a>
 
 </body>
-
 </html>

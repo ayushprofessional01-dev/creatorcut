@@ -2,46 +2,48 @@
 <html>
 <head>
     <title>CreatorCut</title>
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
-<h1>CreatorCut</h1>
+<div class="container">
 
-<p>Video Editor for Creators</p>
+    <h1>CreatorCut</h1>
 
-<h2>Upload Your Video</h2>
+    <p class="subtitle">
+        Automatically remove silent parts from your videos in minutes.
+    </p>
 
-<form action="/upload" method="post" enctype="multipart/form-data">
+    <form action="/upload" method="post" enctype="multipart/form-data">
 
-    <label>Select Video:</label>
-    <br>
-    <input type="file" name="video" accept="video/*" required>
+        <div class="form-group">
+            <label>Select Video</label>
+            <input type="file" name="video" accept="video/*" required>
+        </div>
 
-    <br><br>
+        <div class="form-group">
+            <label>Silence Sensitivity</label>
+            <select name="sensitivity">
+                <option value="low">Low - only clear silence</option>
+                <option value="medium">Medium - balanced</option>
+                <option value="high" selected>High - detects more pauses</option>
+            </select>
+        </div>
 
-    <label>Silence Sensitivity:</label>
-    <br>
-    <select name="sensitivity">
-        <option value="low">Low - only clear silence</option>
-        <option value="medium">Medium - balanced</option>
-        <option value="high" selected>High - detects more pauses</option>
-    </select>
+        <div class="form-group">
+            <label>Minimum Silence Duration</label>
+            <select name="minSilenceDuration">
+                <option value="0.3" selected>0.3 seconds</option>
+                <option value="0.5">0.5 seconds</option>
+                <option value="1.0">1 second</option>
+            </select>
+        </div>
 
-    <br><br>
+        <button type="submit">Trim Video</button>
 
-    <label>Minimum Silence Duration:</label>
-    <br>
-    <select name="minSilenceDuration">
-        <option value="0.3" selected>0.3 seconds</option>
-        <option value="0.5">0.5 seconds</option>
-        <option value="1.0">1 second</option>
-    </select>
+    </form>
 
-    <br><br>
-
-    <button type="submit">Trim Video</button>
-
-</form>
+</div>
 
 </body>
 </html>
