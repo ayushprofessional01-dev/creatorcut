@@ -25,7 +25,8 @@ public class VideoProcessingService {
             String inputFilePath,
             String originalFileName,
             String sensitivity,
-            double minSilenceDuration)
+            double minSilenceDuration,
+            boolean enhanceAudio)
             throws IOException, InterruptedException {
 
         Path processedPath = Paths.get(PROCESSED_DIR);
@@ -42,11 +43,16 @@ public class VideoProcessingService {
 
         String safeFileName = Paths.get(originalFileName).getFileName().toString();
 
-        String outputFileName = "trimmed_" + safeFileName;
+        String outputFileName = "processed_" + safeFileName;
 
         String outputFilePath = PROCESSED_DIR + File.separator + outputFileName;
 
-        removeSilence(inputFilePath, outputFilePath, silenceSegments);
+        processFinalVideo(
+                inputFilePath,
+                outputFilePath,
+                silenceSegments,
+                enhanceAudio
+        );
 
         return new ProcessingResult(outputFileName, silenceSegments);
     }
@@ -117,21 +123,39 @@ public class VideoProcessingService {
         return silenceSegments;
     }
 
-    private void removeSilence(
+    private void processFinalVideo(
             String inputFilePath,
             String outputFilePath,
-            List<SilenceSegment> silenceSegments)
+            List<SilenceSegment> silenceSegments,
+            boolean enhanceAudio)
             throws IOException, InterruptedException {
 
         ProcessBuilder processBuilder;
 
-        if (silenceSegments.isEmpty()) {
+        boolean hasSilence = !silenceSegments.isEmpty();
+
+        if (!hasSilence && !enhanceAudio) {
 
             processBuilder = new ProcessBuilder(
                     "ffmpeg",
                     "-y",
                     "-i", inputFilePath,
                     "-c", "copy",
+                    outputFilePath
+            );
+
+        } else if (!hasSilence) {
+
+            String audioEnhancementFilter = getAudioEnhancementFilter();
+
+            processBuilder = new ProcessBuilder(
+                    "ffmpeg",
+                    "-y",
+                    "-i", inputFilePath,
+                    "-c:v", "copy",
+                    "-af", audioEnhancementFilter,
+                    "-c:a", "aac",
+                    "-b:a", "192k",
                     outputFilePath
             );
 
@@ -145,6 +169,10 @@ public class VideoProcessingService {
 
             String audioFilter = "aselect='" + removeExpression + "',asetpts=N/SR/TB";
 
+            if (enhanceAudio) {
+                audioFilter = audioFilter + "," + getAudioEnhancementFilter();
+            }
+
             processBuilder = new ProcessBuilder(
                     "ffmpeg",
                     "-y",
@@ -154,6 +182,7 @@ public class VideoProcessingService {
                     "-c:v", "libx264",
                     "-preset", "veryfast",
                     "-c:a", "aac",
+                    "-b:a", "192k",
                     outputFilePath
             );
         }
@@ -166,7 +195,7 @@ public class VideoProcessingService {
         int exitCode = process.waitFor();
 
         if (exitCode != 0) {
-            throw new RuntimeException("Silence removal failed.");
+            throw new RuntimeException("Video processing failed.");
         }
     }
 
@@ -192,8 +221,22 @@ public class VideoProcessingService {
             case "low" -> "-35dB";
             case "medium" -> "-30dB";
             case "high" -> "-25dB";
+            case "veryhigh" -> "-20dB";
+            case "extreme" -> "-18dB";
             default -> "-25dB";
         };
+    }
+
+    private String getAudioEnhancementFilter() {
+
+        return String.join(",",
+                "highpass=f=80",
+                "lowpass=f=12000",
+                "afftdn=nf=-25",
+                "dynaudnorm",
+                "acompressor=threshold=0.089:ratio=3:attack=20:release=250",
+                "loudnorm=I=-16:TP=-1.5:LRA=11"
+        );
     }
 
     private Double extractValue(String line, String key) {

@@ -11,7 +11,7 @@
     <h1>CreatorCut</h1>
 
     <p class="subtitle">
-        Automatically remove silent parts from your videos in minutes.
+        Automatically remove silent parts and enhance audio from your videos.
     </p>
 
     <form action="/upload" method="post" enctype="multipart/form-data">
@@ -24,19 +24,32 @@
         <div class="form-group">
             <label>Silence Sensitivity</label>
             <select name="sensitivity">
-                <option value="low">Low - only clear silence</option>
+                <option value="low">Low - only very clear silence</option>
                 <option value="medium">Medium - balanced</option>
                 <option value="high" selected>High - detects more pauses</option>
+                <option value="veryhigh">Very High - laptop mic / noisy room</option>
+                <option value="extreme">Extreme - may cut soft speech</option>
             </select>
         </div>
 
         <div class="form-group">
             <label>Minimum Silence Duration</label>
             <select name="minSilenceDuration">
+                <option value="0.2">0.2 seconds</option>
                 <option value="0.3" selected>0.3 seconds</option>
                 <option value="0.5">0.5 seconds</option>
                 <option value="1.0">1 second</option>
             </select>
+        </div>
+
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="enhanceAudio" value="true" checked>
+                Enhance audio
+            </label>
+            <small>
+                Reduces background noise, balances volume, and improves voice clarity.
+            </small>
         </div>
 
         <button type="submit">Trim Video</button>

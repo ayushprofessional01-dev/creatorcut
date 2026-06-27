@@ -30,6 +30,7 @@ public class UploadController {
             @RequestParam("video") MultipartFile file,
             @RequestParam(defaultValue = "high") String sensitivity,
             @RequestParam(defaultValue = "0.3") double minSilenceDuration,
+            @RequestParam(defaultValue = "false") boolean enhanceAudio,
             Model model) {
 
         try {
@@ -58,15 +59,17 @@ public class UploadController {
                     filePath.toString(),
                     fileName,
                     sensitivity,
-                    minSilenceDuration
+                    minSilenceDuration,
+                    enhanceAudio
             );
 
-            model.addAttribute("message", "Video uploaded, silence detected, and trimmed successfully.");
+            model.addAttribute("message", "Video uploaded, silence detected, and processed successfully.");
             model.addAttribute("downloadFileName", processingResult.getOutputFileName());
             model.addAttribute("silences", processingResult.getSilenceSegments());
             model.addAttribute("silenceCount", processingResult.getSilenceSegments().size());
             model.addAttribute("selectedSensitivity", sensitivity);
             model.addAttribute("selectedDuration", minSilenceDuration);
+            model.addAttribute("enhanceAudio", enhanceAudio);
 
         } catch (IOException e) {
             model.addAttribute("message", "Upload failed: " + e.getMessage());

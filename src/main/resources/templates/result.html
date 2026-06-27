@@ -14,13 +14,20 @@
 
     <div class="card" th:if="${selectedSensitivity != null}">
         <h3>Settings Used</h3>
+
         <p>
             Sensitivity:
             <strong th:text="${selectedSensitivity}"></strong>
         </p>
+
         <p>
             Minimum Silence Duration:
             <strong th:text="${selectedDuration}"></strong>s
+        </p>
+
+        <p>
+            Audio Enhancement:
+            <strong th:text="${enhanceAudio} ? 'Enabled' : 'Disabled'"></strong>
         </p>
     </div>
 
@@ -52,7 +59,7 @@
 
     <div th:if="${downloadFileName}">
         <a class="download-btn" th:href="@{'/download/' + ${downloadFileName}}">
-            Download Trimmed Video
+            Download Processed Video
         </a>
     </div>
 
