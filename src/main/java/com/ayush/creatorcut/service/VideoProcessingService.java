@@ -180,7 +180,8 @@ public class VideoProcessingService {
                     "-vf", videoFilter,
                     "-af", audioFilter,
                     "-c:v", "libx264",
-                    "-preset", "ultrafast",
+"-preset", "ultrafast",
+"-threads", "1",
                     "-c:a", "aac",
                     "-b:a", "192k",
                     outputFilePath
