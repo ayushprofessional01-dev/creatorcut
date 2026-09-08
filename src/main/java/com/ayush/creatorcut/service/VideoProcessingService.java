@@ -67,7 +67,8 @@ public class VideoProcessingService {
 
         String noiseLevel = getNoiseLevel(sensitivity);
 
-        String silenceFilter = "silencedetect=n=" + noiseLevel + ":d=" + minSilenceDuration;
+        String silenceFilter =
+                "silencedetect=n=" + noiseLevel + ":d=" + minSilenceDuration;
 
         ProcessBuilder processBuilder = new ProcessBuilder(
                 "ffmpeg",
@@ -91,11 +92,13 @@ public class VideoProcessingService {
         while ((line = reader.readLine()) != null) {
 
             if (line.contains("silence_start:")) {
-                currentSilenceStart = extractValue(line, "silence_start:");
+                currentSilenceStart =
+                        extractValue(line, "silence_start:");
             }
 
             if (line.contains("silence_end:")) {
-                Double silenceEnd = extractValue(line, "silence_end:");
+                Double silenceEnd =
+                        extractValue(line, "silence_end:");
 
                 if (currentSilenceStart != null && silenceEnd != null) {
 
@@ -146,7 +149,8 @@ public class VideoProcessingService {
 
         } else if (!hasSilence) {
 
-            String audioEnhancementFilter = getAudioEnhancementFilter();
+            String audioEnhancementFilter =
+                    getAudioEnhancementFilter();
 
             processBuilder = new ProcessBuilder(
                     "ffmpeg",
@@ -161,29 +165,52 @@ public class VideoProcessingService {
 
         } else {
 
-            String silenceExpression = buildSilenceExpression(silenceSegments);
+            /*
+             * Build the parts of the video that should be KEPT.
+             *
+             * Example:
+             *
+             * Original:
+             * 0 -------- silence -------- 5 -------- silence -------- 10
+             *
+             * We create:
+             *
+             * Part 0: 0 -> first silence
+             * Part 1: second silence -> next silence
+             * Part 2: last silence -> end
+             *
+             * Both audio and video use exactly the same time ranges.
+             */
 
-            String removeExpression = "not(" + silenceExpression + ")";
+            List<double[]> keptSegments = buildKeptSegments(
+                    silenceSegments
+            );
 
-            String videoFilter = "select='" + removeExpression + "',setpts=N/FRAME_RATE/TB";
-
-            String audioFilter = "aselect='" + removeExpression + "',asetpts=N/SR/TB";
-
-            if (enhanceAudio) {
-                audioFilter = audioFilter + "," + getAudioEnhancementFilter();
+            if (keptSegments.isEmpty()) {
+                throw new RuntimeException(
+                        "No video content remains after removing silence."
+                );
             }
+
+            String filterComplex =
+                    buildSynchronizedFilterComplex(
+                            keptSegments,
+                            enhanceAudio
+                    );
 
             processBuilder = new ProcessBuilder(
                     "ffmpeg",
                     "-y",
                     "-i", inputFilePath,
-                    "-vf", videoFilter,
-                    "-af", audioFilter,
+                    "-filter_complex", filterComplex,
+                    "-map", "[vout]",
+                    "-map", "[aout]",
                     "-c:v", "libx264",
-"-preset", "ultrafast",
-"-threads", "1",
+                    "-preset", "ultrafast",
+                    "-threads", "1",
                     "-c:a", "aac",
                     "-b:a", "192k",
+                    "-movflags", "+faststart",
                     outputFilePath
             );
         }
@@ -196,11 +223,167 @@ public class VideoProcessingService {
         int exitCode = process.waitFor();
 
         if (exitCode != 0) {
-            throw new RuntimeException("Video processing failed.");
+            throw new RuntimeException(
+                    "Video processing failed."
+            );
         }
     }
 
-    private String buildSilenceExpression(List<SilenceSegment> silenceSegments) {
+    private List<double[]> buildKeptSegments(
+            List<SilenceSegment> silenceSegments) {
+
+        List<double[]> keptSegments = new ArrayList<>();
+
+        double previousEnd = 0.0;
+
+        for (SilenceSegment silence : silenceSegments) {
+
+            double silenceStart = silence.getStart();
+            double silenceEnd = silence.getEnd();
+
+            if (silenceStart > previousEnd) {
+                keptSegments.add(
+                        new double[]{
+                                previousEnd,
+                                silenceStart
+                        }
+                );
+            }
+
+            previousEnd = Math.max(previousEnd, silenceEnd);
+        }
+
+        /*
+         * The final segment goes from the end of the last silence
+         * until the end of the video.
+         *
+         * We don't specify an end time here because FFmpeg's
+         * trim/atrim filters can simply continue until EOF.
+         */
+        keptSegments.add(
+                new double[]{
+                        previousEnd,
+                        -1
+                }
+        );
+
+        return keptSegments;
+    }
+
+    private String buildSynchronizedFilterComplex(
+            List<double[]> keptSegments,
+            boolean enhanceAudio) {
+
+        int segmentCount = keptSegments.size();
+
+        StringBuilder filter = new StringBuilder();
+
+        /*
+         * Split the original video/audio streams so each kept
+         * segment gets its own copy.
+         */
+        filter.append("[0:v]split=")
+                .append(segmentCount);
+
+        for (int i = 0; i < segmentCount; i++) {
+            filter.append("[vsrc").append(i).append("]");
+        }
+
+        filter.append(";");
+
+        filter.append("[0:a]asplit=")
+                .append(segmentCount);
+
+        for (int i = 0; i < segmentCount; i++) {
+            filter.append("[asrc").append(i).append("]");
+        }
+
+        filter.append(";");
+
+        /*
+         * Trim every video and audio segment using the SAME
+         * start/end times.
+         */
+        for (int i = 0; i < segmentCount; i++) {
+
+            double start = keptSegments.get(i)[0];
+            double end = keptSegments.get(i)[1];
+
+            filter.append("[vsrc")
+                    .append(i)
+                    .append("]");
+
+            if (end >= 0) {
+                filter.append("trim=start=")
+                        .append(formatTime(start))
+                        .append(":end=")
+                        .append(formatTime(end));
+            } else {
+                filter.append("trim=start=")
+                        .append(formatTime(start));
+            }
+
+            filter.append(",setpts=PTS-STARTPTS[v")
+                    .append(i)
+                    .append("];");
+
+            filter.append("[asrc")
+                    .append(i)
+                    .append("]");
+
+            if (end >= 0) {
+                filter.append("atrim=start=")
+                        .append(formatTime(start))
+                        .append(":end=")
+                        .append(formatTime(end));
+            } else {
+                filter.append("atrim=start=")
+                        .append(formatTime(start));
+            }
+
+            filter.append(",asetpts=PTS-STARTPTS");
+
+            if (enhanceAudio) {
+                filter.append(",")
+                        .append(getAudioEnhancementFilter());
+            }
+
+            filter.append("[a")
+                    .append(i)
+                    .append("];");
+        }
+
+        /*
+         * Join all kept video/audio segments together.
+         *
+         * Each video segment is paired with its matching
+         * audio segment.
+         */
+        for (int i = 0; i < segmentCount; i++) {
+            filter.append("[v")
+                    .append(i)
+                    .append("][a")
+                    .append(i)
+                    .append("]");
+        }
+
+        filter.append("concat=n=")
+                .append(segmentCount)
+                .append(":v=1:a=1[vout][aout]");
+
+        return filter.toString();
+    }
+
+    private String formatTime(double time) {
+        return String.format(
+                Locale.US,
+                "%.3f",
+                time
+        );
+    }
+
+    private String buildSilenceExpression(
+            List<SilenceSegment> silenceSegments) {
 
         return silenceSegments.stream()
                 .map(segment -> String.format(
@@ -240,7 +423,9 @@ public class VideoProcessingService {
         );
     }
 
-    private Double extractValue(String line, String key) {
+    private Double extractValue(
+            String line,
+            String key) {
 
         int startIndex = line.indexOf(key);
 
@@ -248,9 +433,13 @@ public class VideoProcessingService {
             return null;
         }
 
-        String valuePart = line.substring(startIndex + key.length()).trim();
+        String valuePart =
+                line.substring(
+                        startIndex + key.length()
+                ).trim();
 
-        String number = valuePart.split("\\s+")[0];
+        String number =
+                valuePart.split("\\s+")[0];
 
         return Double.parseDouble(number);
     }
